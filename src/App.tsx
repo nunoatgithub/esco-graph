@@ -34,6 +34,7 @@ const RELATION_COLORS: Record<string, string> = {
 }
 
 const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
+type LoadingPhase = 'idle' | 'fetching' | 'reading' | 'parsing' | 'processing'
 
 const asNodeId = (nodeRef: string | RenderNode): string =>
   typeof nodeRef === 'string' ? nodeRef : nodeRef.id
@@ -49,6 +50,7 @@ const App = () => {
 
   const [graphData, setGraphData] = useState<GraphData>(EMPTY_GRAPH)
   const [loading, setLoading] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle')
   const [error, setError] = useState('')
   const [status, setStatus] = useState('Load sample data, a local JSON-LD file, or a URL.')
   const [progress, setProgress] = useState({ processed: 0, total: 0 })
@@ -79,6 +81,7 @@ const App = () => {
     (payload: unknown) => {
       resetGraph()
       setLoading(true)
+      setLoadingPhase('processing')
       setError('')
       setStatus('Flattening and transforming JSON-LD in worker...')
       postWorkerMessage({ type: 'cancel' })
@@ -109,6 +112,7 @@ const App = () => {
 
       if (message.type === 'complete') {
         setLoading(false)
+        setLoadingPhase('idle')
         setStatus(
           `Loaded ${message.payload.totalNodes.toLocaleString()} nodes and ${message.payload.totalLinks.toLocaleString()} links.`,
         )
@@ -117,6 +121,7 @@ const App = () => {
 
       if (message.type === 'error') {
         setLoading(false)
+        setLoadingPhase('idle')
         setError(message.payload)
         setStatus('Failed to process the JSON-LD dataset.')
       }
@@ -132,15 +137,22 @@ const App = () => {
 
   const loadSample = useCallback(async () => {
     try {
+      setLoading(true)
+      setLoadingPhase('fetching')
+      setStatus('Downloading sample dataset...')
       setError('')
       const response = await fetch('/sample-esco.jsonld')
       if (!response.ok) {
         throw new Error(`Unable to fetch sample dataset (${response.status})`)
       }
 
+      setLoadingPhase('parsing')
+      setStatus('Parsing sample JSON-LD...')
       const payload = (await response.json()) as unknown
       processPayload(payload)
     } catch (loadError) {
+      setLoading(false)
+      setLoadingPhase('idle')
       setError(loadError instanceof Error ? loadError.message : 'Unable to load sample file')
     }
   }, [processPayload])
@@ -151,15 +163,22 @@ const App = () => {
     }
 
     try {
+      setLoading(true)
+      setLoadingPhase('fetching')
+      setStatus('Downloading dataset from URL...')
       setError('')
       const response = await fetch(datasetUrl)
       if (!response.ok) {
         throw new Error(`Unable to fetch URL (${response.status})`)
       }
 
+      setLoadingPhase('parsing')
+      setStatus('Parsing JSON-LD from URL...')
       const payload = (await response.json()) as unknown
       processPayload(payload)
     } catch (loadError) {
+      setLoading(false)
+      setLoadingPhase('idle')
       setError(loadError instanceof Error ? loadError.message : 'Unable to load URL')
     }
   }, [datasetUrl, processPayload])
@@ -173,11 +192,18 @@ const App = () => {
       }
 
       try {
+        setLoading(true)
+        setLoadingPhase('reading')
+        setStatus(`Reading ${file.name}...`)
         setError('')
         const text = await file.text()
+        setLoadingPhase('parsing')
+        setStatus(`Parsing ${file.name}...`)
         const payload = JSON.parse(text) as unknown
         processPayload(payload)
       } catch (loadError) {
+        setLoading(false)
+        setLoadingPhase('idle')
         setError(loadError instanceof Error ? loadError.message : 'Unable to parse JSON-LD file')
       } finally {
         input.value = ''
@@ -464,9 +490,17 @@ const App = () => {
         </div>
 
         {loading ? (
-          <p className="muted">
-            Processing {progress.processed.toLocaleString()} / {progress.total.toLocaleString()} entries...
-          </p>
+          <div className="loading-progress">
+            <progress
+              max={Math.max(progress.total, 1)}
+              value={loadingPhase === 'processing' && progress.total > 0 ? progress.processed : undefined}
+            />
+            <p className="muted">
+              {loadingPhase === 'processing' && progress.total > 0
+                ? `Processing ${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} entries...`
+                : 'Working...'}
+            </p>
+          </div>
         ) : null}
         {error ? <p className="error">{error}</p> : null}
       </aside>
