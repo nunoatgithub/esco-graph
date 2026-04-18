@@ -105,6 +105,11 @@ const heartbeat = setInterval(() => {
 let flattened
 try {
   flattened = await jsonld.flatten(parsed)
+} catch (error) {
+  clearInterval(heartbeat)
+  const message = error instanceof Error ? error.message : String(error)
+  log(`\n❌  jsonld.flatten() failed after ${elapsed(t2)}: ${message}\n`)
+  process.exit(1)
 } finally {
   clearInterval(heartbeat)
 }
@@ -128,4 +133,4 @@ log(`✅  Written in ${elapsed(t3)} — ${formatBytes(outputStat.size)}`)
 log(`\n🎉  All done in ${elapsed(t0)}`)
 log(`    Input:  ${formatBytes(inputStat.size)} → Output: ${formatBytes(outputStat.size)}`)
 log(`    Entities: ${flatCount.toLocaleString()}\n`)
-log('Load the output file directly in esco-graph to skip the flatten step.\n')
+log('Load the output file directly in the app to skip the flatten step.\n')
