@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Data files (large JSON-LD datasets)
+data/*.json
+data/*.jsonld
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
