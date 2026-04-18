@@ -1,0 +1,43 @@
+[
+  {
+    "@id": "occupation:data-analyst",
+    "@type": ["occupation"],
+    "http://example.org/preferredLabel": [{"@value": "Data analyst", "@language": "en"}],
+    "http://example.org/hasEssentialSkill": [{"@id": "skill:statistics"}, {"@id": "skill:data-cleaning"}],
+    "http://example.org/hasOptionalSkill": [{"@id": "skill:data-visualization"}],
+    "languages": ["en"],
+    "x": 0, "y": 0, "z": 0
+  },
+  {
+    "@id": "skill:statistics",
+    "@type": ["skill"],
+    "http://example.org/preferredLabel": [{"@value": "Statistics", "@language": "en"}],
+    "http://example.org/broaderSkill": [{"@id": "skill:mathematics"}],
+    "http://example.org/relatedSkill": [{"@id": "skill:data-cleaning"}],
+    "languages": ["en"],
+    "x": 40, "y": -20, "z": 10
+  },
+  {
+    "@id": "skill:data-cleaning",
+    "@type": ["skill"],
+    "http://example.org/preferredLabel": [{"@value": "Data cleaning", "@language": "en"}],
+    "http://example.org/relatedSkill": [{"@id": "skill:data-visualization"}],
+    "languages": ["en"],
+    "x": -30, "y": 25, "z": -15
+  },
+  {
+    "@id": "skill:data-visualization",
+    "@type": ["skill"],
+    "http://example.org/preferredLabel": [{"@value": "Data visualization", "@language": "en"}],
+    "http://example.org/relatedSkill": [{"@id": "skill:statistics"}],
+    "languages": ["en"],
+    "x": -40, "y": -10, "z": 30
+  },
+  {
+    "@id": "skill:mathematics",
+    "@type": ["skill"],
+    "http://example.org/preferredLabel": [{"@value": "Mathematics", "@language": "en"}],
+    "languages": ["en"],
+    "x": 50, "y": 30, "z": -25
+  }
+]

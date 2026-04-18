@@ -1,6 +1,5 @@
 /// <reference lib="webworker" />
 
-import * as jsonld from 'jsonld'
 import { transformFlattened } from '../graph/escoGraph'
 import type { WorkerIncomingMessage, WorkerOutgoingMessage } from '../graph/types'
 
@@ -25,27 +24,22 @@ self.onmessage = async (event: MessageEvent<WorkerIncomingMessage>) => {
   cancelled = false
 
   try {
-    const flattened = await jsonld.flatten(message.payload as object)
+    postWorkerMessage({ type: 'progress', payload: { processed: 0, total: 1 } })
+    const parsed = JSON.parse(message.payload) as unknown
 
-    const graph = transformFlattened(flattened, {
-      chunkSize: message.chunkSize,
+    if (!Array.isArray(parsed)) {
+      throw new Error('Expected a pre-flattened JSON array. Run flatten.sh first.')
+    }
+
+    const graph = transformFlattened(parsed, {
       isCancelled: () => cancelled,
-      onChunk: (chunk) => {
-        postWorkerMessage({
-          type: 'chunk',
-          payload: chunk,
-        })
+      onProgress: (processed, total) => {
+        postWorkerMessage({ type: 'progress', payload: { processed, total } })
       },
     })
 
     if (!cancelled) {
-      postWorkerMessage({
-        type: 'complete',
-        payload: {
-          totalNodes: graph.nodes.length,
-          totalLinks: graph.links.length,
-        },
-      })
+      postWorkerMessage({ type: 'complete', payload: graph })
     }
   } catch (error) {
     postWorkerMessage({

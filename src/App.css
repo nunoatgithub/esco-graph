@@ -50,6 +50,15 @@
   padding: 0.75rem;
 }
 
+.details a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.details a:hover {
+  text-decoration: underline;
+}
+
 input,
 button {
   font: inherit;
@@ -114,6 +123,70 @@ button:hover {
 .loading-progress progress {
   width: 100%;
   height: 0.65rem;
+}
+
+.search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.search-results li {
+  margin: 0;
+}
+
+.search-results button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: #c8d4e3;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-results button:hover {
+  background: #1b2a41;
+  color: #ffb703;
+}
+
+.hierarchy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.hierarchy-list li {
+  margin: 0;
+}
+
+.hierarchy-list button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: #c8d4e3;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hierarchy-list button:hover {
+  background: #1b2a41;
+  color: #ffb703;
 }
 
 @media (max-width: 1024px) {

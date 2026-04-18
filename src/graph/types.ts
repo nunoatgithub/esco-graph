@@ -2,6 +2,11 @@ export interface GraphNode {
   id: string
   label: string
   type: string
+  languages: string[]
+  degree: number
+  x?: number
+  y?: number
+  z?: number
 }
 
 export interface GraphLink {
@@ -15,18 +20,11 @@ export interface GraphData {
   links: GraphLink[]
 }
 
-export interface GraphChunk {
-  nodes: GraphNode[]
-  links: GraphLink[]
-  processed: number
-  total: number
-}
-
 export type WorkerIncomingMessage =
-  | { type: 'process'; payload: unknown; chunkSize?: number }
+  | { type: 'process'; payload: string }
   | { type: 'cancel' }
 
 export type WorkerOutgoingMessage =
-  | { type: 'chunk'; payload: GraphChunk }
-  | { type: 'complete'; payload: { totalNodes: number; totalLinks: number } }
+  | { type: 'progress'; payload: { processed: number; total: number } }
+  | { type: 'complete'; payload: GraphData }
   | { type: 'error'; payload: string }
