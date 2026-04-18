@@ -36,6 +36,12 @@ const RELATION_COLORS: Record<string, string> = {
 const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
 type LoadingPhase = 'idle' | 'fetching' | 'reading' | 'parsing' | 'processing'
 
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 const asNodeId = (nodeRef: string | RenderNode): string =>
   typeof nodeRef === 'string' ? nodeRef : nodeRef.id
 
@@ -54,6 +60,7 @@ const App = () => {
   const [error, setError] = useState('')
   const [status, setStatus] = useState('Load sample data, a local JSON-LD file, or a URL.')
   const [progress, setProgress] = useState({ processed: 0, total: 0 })
+  const [phaseProgress, setPhaseProgress] = useState({ loaded: 0, total: 0 })
 
   const [tripleSearch, setTripleSearch] = useState('')
   const [nodeSearch, setNodeSearch] = useState('')
@@ -75,6 +82,7 @@ const App = () => {
     setSelectedNodeId(null)
     setHoverNodeId(null)
     setProgress({ processed: 0, total: 0 })
+    setPhaseProgress({ loaded: 0, total: 0 })
   }, [])
 
   const processPayload = useCallback(
@@ -135,27 +143,60 @@ const App = () => {
     }
   }, [])
 
+  const readResponseWithProgress = useCallback(
+    async (response: Response): Promise<string> => {
+      const contentLength = Number(response.headers.get('Content-Length') ?? 0)
+      if (!contentLength || !response.body) {
+        return response.text()
+      }
+
+      setPhaseProgress({ loaded: 0, total: contentLength })
+      const reader = response.body.getReader()
+      const chunks: Uint8Array[] = []
+      let loaded = 0
+
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        loaded += value.byteLength
+        setPhaseProgress({ loaded, total: contentLength })
+      }
+
+      const combined = new Uint8Array(loaded)
+      let offset = 0
+      for (const chunk of chunks) {
+        combined.set(chunk, offset)
+        offset += chunk.byteLength
+      }
+      return new TextDecoder().decode(combined)
+    },
+    [],
+  )
+
   const loadSample = useCallback(async () => {
     try {
       setLoading(true)
       setLoadingPhase('fetching')
       setStatus('Downloading sample dataset...')
       setError('')
+      setPhaseProgress({ loaded: 0, total: 0 })
       const response = await fetch('/sample-esco.jsonld')
       if (!response.ok) {
         throw new Error(`Unable to fetch sample dataset (${response.status})`)
       }
 
+      const text = await readResponseWithProgress(response)
       setLoadingPhase('parsing')
       setStatus('Parsing sample JSON-LD...')
-      const payload = (await response.json()) as unknown
+      const payload = JSON.parse(text) as unknown
       processPayload(payload)
     } catch (loadError) {
       setLoading(false)
       setLoadingPhase('idle')
       setError(loadError instanceof Error ? loadError.message : 'Unable to load sample file')
     }
-  }, [processPayload])
+  }, [processPayload, readResponseWithProgress])
 
   const loadFromUrl = useCallback(async () => {
     if (!datasetUrl.trim()) {
@@ -167,21 +208,23 @@ const App = () => {
       setLoadingPhase('fetching')
       setStatus('Downloading dataset from URL...')
       setError('')
+      setPhaseProgress({ loaded: 0, total: 0 })
       const response = await fetch(datasetUrl)
       if (!response.ok) {
         throw new Error(`Unable to fetch URL (${response.status})`)
       }
 
+      const text = await readResponseWithProgress(response)
       setLoadingPhase('parsing')
       setStatus('Parsing JSON-LD from URL...')
-      const payload = (await response.json()) as unknown
+      const payload = JSON.parse(text) as unknown
       processPayload(payload)
     } catch (loadError) {
       setLoading(false)
       setLoadingPhase('idle')
       setError(loadError instanceof Error ? loadError.message : 'Unable to load URL')
     }
-  }, [datasetUrl, processPayload])
+  }, [datasetUrl, processPayload, readResponseWithProgress])
 
   const handleLocalFile = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -196,7 +239,20 @@ const App = () => {
         setLoadingPhase('reading')
         setStatus(`Reading ${file.name}...`)
         setError('')
-        const text = await file.text()
+        setPhaseProgress({ loaded: 0, total: file.size })
+
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onprogress = (progressEvent) => {
+            if (progressEvent.lengthComputable) {
+              setPhaseProgress({ loaded: progressEvent.loaded, total: progressEvent.total })
+            }
+          }
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(reader.error)
+          reader.readAsText(file)
+        })
+
         setLoadingPhase('parsing')
         setStatus(`Parsing ${file.name}...`)
         const payload = JSON.parse(text) as unknown
@@ -492,13 +548,37 @@ const App = () => {
         {loading ? (
           <div className="loading-progress">
             <progress
-              max={Math.max(progress.total, 1)}
-              value={loadingPhase === 'processing' && progress.total > 0 ? progress.processed : undefined}
+              max={
+                loadingPhase === 'processing' && progress.total > 0
+                  ? Math.max(progress.total, 1)
+                  : (loadingPhase === 'fetching' || loadingPhase === 'reading') && phaseProgress.total > 0
+                    ? phaseProgress.total
+                    : undefined
+              }
+              value={
+                loadingPhase === 'processing' && progress.total > 0
+                  ? progress.processed
+                  : (loadingPhase === 'fetching' || loadingPhase === 'reading') && phaseProgress.total > 0
+                    ? phaseProgress.loaded
+                    : undefined
+              }
             />
             <p className="muted">
               {loadingPhase === 'processing' && progress.total > 0
                 ? `Processing ${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} entries...`
-                : 'Working...'}
+                : loadingPhase === 'fetching' && phaseProgress.total > 0
+                  ? `Downloading ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
+                  : loadingPhase === 'fetching'
+                    ? 'Downloading...'
+                    : loadingPhase === 'reading' && phaseProgress.total > 0
+                      ? `Reading file ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
+                      : loadingPhase === 'reading'
+                        ? 'Reading file...'
+                        : loadingPhase === 'parsing'
+                          ? 'Parsing JSON-LD...'
+                          : loadingPhase === 'processing'
+                            ? 'Preparing to process...'
+                            : 'Working...'}
             </p>
           </div>
         ) : null}
