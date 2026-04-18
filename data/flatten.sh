@@ -118,22 +118,26 @@ log "⏳  Flattening JSON-LD (this is the slow step)..."
 HEARTBEAT_PID=$!
 
 # Ensure heartbeat is killed on exit
-trap 'kill $HEARTBEAT_PID 2>/dev/null; exit' EXIT INT TERM
+cleanup_heartbeat() { kill $HEARTBEAT_PID 2>/dev/null; }
+trap 'cleanup_heartbeat' EXIT
+trap 'cleanup_heartbeat; exit 1' INT TERM
 
-# Run the actual flatten via node (jsonld library is required)
-FLAT_COUNT=$(node -e "
+# Run the actual flatten via node, passing paths as env vars to avoid injection
+FLAT_COUNT=$(FLATTEN_INPUT="$INPUT_PATH" FLATTEN_OUTPUT="$OUTPUT_PATH" node -e "
   import { readFile, writeFile } from 'node:fs/promises';
   import jsonld from 'jsonld';
 
-  const raw = await readFile('$INPUT_PATH', 'utf-8');
+  const inputPath = process.env.FLATTEN_INPUT;
+  const outputPath = process.env.FLATTEN_OUTPUT;
+  const raw = await readFile(inputPath, 'utf-8');
   const parsed = JSON.parse(raw);
   const flattened = await jsonld.flatten(parsed);
   const count = Array.isArray(flattened) ? flattened.length : 0;
 
-  await writeFile('$OUTPUT_PATH', JSON.stringify(flattened), 'utf-8');
+  await writeFile(outputPath, JSON.stringify(flattened), 'utf-8');
   console.log(count);
 " 2>&1) || {
-  kill $HEARTBEAT_PID 2>/dev/null
+  cleanup_heartbeat
   trap - EXIT INT TERM
   log ""
   log "❌  jsonld.flatten() failed after $(elapsed $T2)"
@@ -141,7 +145,7 @@ FLAT_COUNT=$(node -e "
   exit 1
 }
 
-kill $HEARTBEAT_PID 2>/dev/null
+cleanup_heartbeat
 trap - EXIT INT TERM
 
 log "✅  Flattened in $(elapsed $T2) — ${FLAT_COUNT} entities in the flat graph"
