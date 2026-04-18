@@ -2,6 +2,8 @@
 
 Interactive 3D visualization of the [ESCO](https://esco.ec.europa.eu/) (European Skills, Competences, Qualifications and Occupations) dataset using React, TypeScript, and [react-force-graph-3d](https://github.com/vasturiano/react-force-graph).
 
+![ESCO Graph screenshot](img/screenshot1.png)
+
 ## How it works
 
 The pipeline has two stages:
