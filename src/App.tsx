@@ -145,8 +145,10 @@ const App = () => {
 
   const readResponseWithProgress = useCallback(
     async (response: Response): Promise<string> => {
-      const contentLength = Number(response.headers.get('Content-Length') ?? 0)
-      if (!contentLength || !response.body) {
+      const header = response.headers.get('Content-Length')
+      const contentLength = header ? Number(header) : 0
+      if (contentLength <= 0 || !response.body) {
+        setPhaseProgress({ loaded: 0, total: 0 })
         return response.text()
       }
 
@@ -547,39 +549,49 @@ const App = () => {
 
         {loading ? (
           <div className="loading-progress">
-            <progress
-              max={
-                loadingPhase === 'processing' && progress.total > 0
-                  ? Math.max(progress.total, 1)
-                  : (loadingPhase === 'fetching' || loadingPhase === 'reading') && phaseProgress.total > 0
-                    ? phaseProgress.total
-                    : undefined
-              }
-              value={
-                loadingPhase === 'processing' && progress.total > 0
-                  ? progress.processed
-                  : (loadingPhase === 'fetching' || loadingPhase === 'reading') && phaseProgress.total > 0
-                    ? phaseProgress.loaded
-                    : undefined
-              }
-            />
-            <p className="muted">
-              {loadingPhase === 'processing' && progress.total > 0
-                ? `Processing ${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} entries...`
-                : loadingPhase === 'fetching' && phaseProgress.total > 0
-                  ? `Downloading ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
-                  : loadingPhase === 'fetching'
-                    ? 'Downloading...'
-                    : loadingPhase === 'reading' && phaseProgress.total > 0
-                      ? `Reading file ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
-                      : loadingPhase === 'reading'
-                        ? 'Reading file...'
-                        : loadingPhase === 'parsing'
-                          ? 'Parsing JSON-LD...'
-                          : loadingPhase === 'processing'
-                            ? 'Preparing to process...'
-                            : 'Working...'}
-            </p>
+            {(() => {
+              const hasProcessingProgress = loadingPhase === 'processing' && progress.total > 0
+              const hasPhaseProgress =
+                (loadingPhase === 'fetching' || loadingPhase === 'reading') && phaseProgress.total > 0
+
+              return (
+                <>
+                  <progress
+                    max={
+                      hasProcessingProgress
+                        ? Math.max(progress.total, 1)
+                        : hasPhaseProgress
+                          ? phaseProgress.total
+                          : undefined
+                    }
+                    value={
+                      hasProcessingProgress
+                        ? progress.processed
+                        : hasPhaseProgress
+                          ? phaseProgress.loaded
+                          : undefined
+                    }
+                  />
+                  <p className="muted">
+                    {hasProcessingProgress
+                      ? `Processing ${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} entries...`
+                      : loadingPhase === 'fetching' && phaseProgress.total > 0
+                        ? `Downloading ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
+                        : loadingPhase === 'fetching'
+                          ? 'Downloading...'
+                          : loadingPhase === 'reading' && phaseProgress.total > 0
+                            ? `Reading file ${formatBytes(phaseProgress.loaded)} / ${formatBytes(phaseProgress.total)}...`
+                            : loadingPhase === 'reading'
+                              ? 'Reading file...'
+                              : loadingPhase === 'parsing'
+                                ? 'Parsing JSON-LD...'
+                                : loadingPhase === 'processing'
+                                  ? 'Preparing to process...'
+                                  : 'Working...'}
+                  </p>
+                </>
+              )
+            })()}
           </div>
         ) : null}
         {error ? <p className="error">{error}</p> : null}
