@@ -370,7 +370,7 @@ const App = () => {
   const searchLower = search.trim().toLowerCase()
 
   const matchingSets = useMemo(() => {
-    if (!searchLower) {
+    if (searchLower.length < 3) {
       return {
         nodeIds: new Set<string>(),
         linkIds: new Set<string>(),
@@ -383,7 +383,6 @@ const App = () => {
     for (const node of filteredGraph.nodes) {
       const isMatch =
         node.label.toLowerCase().includes(searchLower) ||
-        node.id.toLowerCase().includes(searchLower) ||
         node.type.toLowerCase().includes(searchLower)
 
       if (isMatch) {
@@ -398,7 +397,6 @@ const App = () => {
       const targetNode = nodeById.get(targetId)
 
       const linkMatches =
-        link.type.toLowerCase().includes(searchLower) ||
         sourceNode?.label.toLowerCase().includes(searchLower) ||
         targetNode?.label.toLowerCase().includes(searchLower)
 
@@ -653,7 +651,7 @@ const App = () => {
               <p>ID: {String(selectedNode.id).startsWith('http') ? <a href={String(selectedNode.id)} target="_blank" rel="noopener noreferrer">{selectedNode.id}</a> : selectedNode.id}</p>
               <p>Type: {selectedNode.type}</p>
               <p>Languages: {selectedNode.languages.length > 0 ? selectedNode.languages.join(', ') : 'none'}</p>
-              <p>Connections: {selectedNode.degree}</p>
+              <p>Connections: {neighborsById.get(selectedNode.id)?.size ?? 0}</p>
               {groupedNeighbors && (
                 <div className="hierarchy">
                   {(Object.keys(ROLE_LABELS) as NeighborRole[]).map((role) => {
@@ -702,9 +700,9 @@ const App = () => {
             setLoading(false)
             setLoadingPhase('idle')
           }}
-          nodeLabel={(node) => `${node.label} (${node.type}) [${node.degree} links]`}
+          nodeLabel={(node) => `${node.label} (${node.type}) [${neighborsById.get(node.id)?.size ?? 0} links]`}
           onNodeHover={(node) => setHoverNodeId(node?.id ?? null)}
-          onNodeClick={(node) => setSelectedNodeId(node.id)}
+          onNodeClick={(node) => { setSearch(''); setSelectedNodeId(node.id) }}
           onBackgroundClick={() => setSelectedNodeId(null)}
           nodeVal={(node) => {
             if (highlightedNodeIds.has(node.id)) {
@@ -719,20 +717,20 @@ const App = () => {
           }}
           nodeColor={(node) => {
             if (hasSearch) {
-              return matchingSets.nodeIds.has(node.id) ? '#ffb703' : 'rgba(143, 153, 166, 0.12)'
+              return matchingSets.nodeIds.has(node.id) ? '#ffb703' : 'rgba(143, 153, 166, 0.25)'
             }
 
             if (selectedLanguage) {
               return node.languages.includes(selectedLanguage)
                 ? '#4cc9f0'
-                : 'rgba(143, 153, 166, 0.15)'
+                : 'rgba(143, 153, 166, 0.25)'
             }
 
             if (selectedNodeId) {
               if (node.id === selectedNodeId) return '#ffffff'
               const role = neighborRoles.get(node.id)
               if (role) return ROLE_COLORS[role]
-              return 'rgba(143, 153, 166, 0.08)'
+              return 'rgba(143, 153, 166, 0.25)'
             }
 
             return '#8f99a6'

@@ -10,6 +10,7 @@
   padding: 1rem;
   border-right: 1px solid #1c2432;
   overflow-y: auto;
+  word-break: break-all;
 }
 
 .controls h1 {
